@@ -1,0 +1,2 @@
+rootProject.name = "QuestTracker"
+include ':app'

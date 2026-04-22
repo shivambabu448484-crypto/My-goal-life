@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Quest Tracker"/>
+<meta name="theme-color" content="#0a0a0f"/>
+<title>Daily Quest Tracker</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:#0a0a0f;min-height:100vh;color:#fff;overflow-x:hidden;font-family:'Courier New',monospace}
+.orb{font-family:'Orbitron',monospace!important}
+.stm{font-family:'Share Tech Mono',monospace!important}
+#app{max-width:480px;margin:0 auto;padding:32px 16px 56px;position:relative;z-index:1}
+#screen-glow{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;z-index:0;animation:screen-pulse 2.5s ease-in-out infinite;transition:width .8s,height .8s}
+@keyframes screen-pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.07)}}
+@keyframes scanline{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
+@keyframes flicker{0%,100%{opacity:1}92%{opacity:1}93%{opacity:.82}94%{opacity:1}96%{opacity:.92}97%{opacity:1}}
+@keyframes badge-pulse{0%,100%{box-shadow:var(--bs1)}50%{box-shadow:var(--bs2)}}
+@keyframes done-pulse{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 10px currentColor,0 0 22px currentColor}}
+@keyframes toast-in{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+#scanline{position:fixed;top:0;left:0;right:0;height:2px;background:linear-gradient(transparent,rgba(255,255,255,.05),transparent);animation:scanline 4s linear infinite;pointer-events:none;z-index:9999}
+#main{animation:flicker 8s infinite}
+.btn{border:2px solid;padding:11px 24px;font-family:'Orbitron',monospace;font-size:11px;letter-spacing:3px;cursor:pointer;transition:all .2s;text-transform:uppercase;background:transparent;-webkit-appearance:none;border-radius:0}
+.btn-h{color:#4ecdc4;border-color:#4ecdc4}
+.btn-h:active{background:#4ecdc4;color:#000;box-shadow:0 0 18px #4ecdc4}
+.btn-r{color:#ff4444;border-color:#ff4444}
+.btn-r:active{background:#ff4444;color:#000;box-shadow:0 0 18px #ff4444}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(6px);padding:16px}
+.modal-box{background:#0d0d16;border:1px solid #242436;padding:24px;width:100%;max-width:440px}
+.btn-confirm{background:#ff4444;border:none;color:#fff;padding:10px 20px;font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;cursor:pointer;-webkit-appearance:none;border-radius:0}
+.btn-cancel{background:transparent;border:1px solid #444;color:#777;padding:10px 20px;font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;cursor:pointer;-webkit-appearance:none;border-radius:0}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#0c0c18;border:1px solid #4ecdc4;color:#4ecdc4;padding:10px 20px;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:2px;z-index:300;white-space:nowrap;animation:toast-in .3s ease}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:#0a0a0f}
+::-webkit-scrollbar-thumb{background:#222230}
+</style>
+</head>
+<body>
+<div id="scanline"></div>
+<div id="screen-glow"></div>
+<div id="main">
+  <div id="app">
+    <div style="text-align:center;margin-bottom:28px">
+      <div class="orb" style="font-size:9px;letter-spacing:7px;color:#393945;margin-bottom:4px">&#9672; DAILY QUEST TRACKER &#9672;</div>
+      <div class="stm" id="hdr-date" style="font-size:9px;color:#2a2a38"></div>
+    </div>
+    <div id="phase-banner" style="padding:13px 15px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between"></div>
+    <div style="margin-bottom:22px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span class="stm" style="font-size:8px;color:#333">PHASE PROGRESS</span>
+        <span class="stm" id="phase-pct" style="font-size:8px"></span>
+      </div>
+      <div style="background:#0f0f1a;height:5px;overflow:hidden;position:relative">
+        <div id="phase-bar" style="height:100%;width:0%;transition:width .8s ease"></div>
+      </div>
+      <div id="phase-range" style="display:flex;justify-content:space-between;margin-top:3px"></div>
+    </div>
+    <div style="text-align:center;margin-bottom:28px">
+      <div class="stm" style="font-size:9px;letter-spacing:5px;color:#383844;margin-bottom:12px">CURRENT LEVEL</div>
+      <div id="badge" style="width:158px;height:158px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;flex-direction:column;position:relative">
+        <div id="badge-ring1" style="position:absolute;inset:-8px;border-radius:50%"></div>
+        <div id="badge-ring2" style="position:absolute;inset:-17px;border-radius:50%"></div>
+        <div id="badge-num" class="orb" style="font-size:54px;font-weight:900;line-height:1"></div>
+        <div class="orb" style="font-size:7px;letter-spacing:4px;margin-top:3px;opacity:.6">LEVEL</div>
+      </div>
+      <div style="margin-bottom:4px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span class="stm" style="font-size:8px;color:#252530">Day 1</span>
+          <span class="stm" style="font-size:8px;color:#252530">Day 30</span>
+        </div>
+        <div style="background:#0f0f1a;height:4px;overflow:hidden">
+          <div id="global-bar" style="height:100%;width:0%;transition:width 1s ease"></div>
+        </div>
+      </div>
+      <div id="session-day" class="stm" style="font-size:9px;color:#2a2a38;margin-top:5px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:26px">
+      <div style="background:#0c0c15;border:1px solid #161622;padding:11px 7px;text-align:center">
+        <div id="stat-session" class="orb" style="font-size:17px;font-weight:700;color:#ccc"></div>
+        <div class="stm" style="font-size:7px;letter-spacing:2px;color:#303040;margin-top:3px">SESSION</div>
+      </div>
+      <div id="stat-max-box" style="background:#0c0c15;padding:11px 7px;text-align:center">
+        <div id="stat-max" class="orb" style="font-size:17px;font-weight:700"></div>
+        <div class="stm" style="font-size:7px;letter-spacing:2px;color:#303040;margin-top:3px">MAX EVER</div>
+      </div>
+      <div style="background:#0c0c15;border:1px solid #161622;padding:11px 7px;text-align:center">
+        <div id="stat-days" class="orb" style="font-size:17px;font-weight:700;color:#ccc"></div>
+        <div class="stm" style="font-size:7px;letter-spacing:2px;color:#303040;margin-top:3px">DAYS ACTIVE</div>
+      </div>
+    </div>
+    <div style="margin-bottom:26px">
+      <div class="stm" style="font-size:8px;letter-spacing:3px;color:#222230;margin-bottom:11px">&#9658; MILESTONE ROAD</div>
+      <div id="milestone-road" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-bottom:14px">
+      <button class="btn btn-h" onclick="openHistory()">&#9672; History</button>
+      <button class="btn btn-r" onclick="openReset()">&#8634; Reset</button>
+    </div>
+    <div class="stm" style="text-align:center;font-size:8px;color:#181822">Level increases automatically each day at midnight</div>
+  </div>
+</div>
+
+<div id="reset-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="orb" style="font-size:12px;letter-spacing:3px;color:#ff4444;margin-bottom:5px">&#9888; RESET PROGRESS</div>
+    <div style="height:1px;background:#ff444420;margin-bottom:16px"></div>
+    <p class="stm" id="reset-msg" style="font-size:11px;color:#777;line-height:1.9;margin-bottom:20px"></p>
+    <div style="display:flex;gap:9px;justify-content:flex-end">
+      <button class="btn-cancel" onclick="closeReset()">Cancel</button>
+      <button class="btn-confirm" onclick="doReset()">Confirm Reset</button>
+    </div>
+  </div>
+</div>
+
+<div id="history-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box" style="max-width:460px;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+      <div class="orb" style="font-size:12px;letter-spacing:3px;color:#4ecdc4">&#9672; SESSION HISTORY</div>
+      <button onclick="closeHistory()" style="background:none;border:none;color:#555;font-size:20px;cursor:pointer;padding:0 4px;line-height:1">&#215;</button>
+    </div>
+    <div style="height:1px;background:#4ecdc420;margin-bottom:16px"></div>
+    <div id="history-content"></div>
+  </div>
+</div>
+
+<script>
+var STORAGE_KEY='levelTrackerData_v2';
+var PHASES=[
+  {id:1,name:'WEEK 1',label:'Foundation',start:1,end:7,color:'#4ECDC4',icon:'&#9672;'},
+  {id:2,name:'WEEK 2',label:'Momentum',start:8,end:14,color:'#A855F7',icon:'&#9670;'},
+  {id:3,name:'WEEK 3',label:'Discipline',start:15,end:21,color:'#F43F5E',icon:'&#9650;'},
+  {id:4,name:'WEEK 4',label:'Mastery',start:22,end:28,color:'#FF8C42',icon:'&#9733;'},
+  {id:5,name:'FINALE',label:'Legend',start:29,end:30,color:'#FFD700',icon:'&#9830;'}
+];
+var LC=[
+  '#4ECDC4','#4ECDC4','#45B7AA','#3CA198','#338B85','#2A7572','#1E6B68',
+  '#A855F7','#9333EA','#7C3AED','#6D28D9','#5B21B6','#4C1D95','#3B0FA0',
+  '#F43F5E','#E11D48','#BE123C','#9F1239','#881337','#6E0F2C','#5A0A23',
+  '#FF8C42','#FFA552','#FFB865','#FFC97A','#FFD98E','#FFE5A0','#FFF0C0',
+  '#FFD700','#FFC200'
+];
+
+function todayStr(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fmtDate(s){var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0].slice(2);}
+function daysBetween(a,b){return Math.max(0,Math.floor((new Date(b)-new Date(a))/86400000));}
+function getPhase(lvl){return PHASES.find(function(p){return lvl>=p.start&&lvl<=p.end;})||PHASES[4];}
+function phasePct(lvl,ph){return Math.min(((lvl-ph.start)/(ph.end-ph.start))*100,100);}
+function h2(n){return Math.round(n).toString(16).padStart(2,'0');}
+function loadData(){try{var r=localStorage.getItem(STORAGE_KEY);if(r)return JSON.parse(r);}catch(e){}return null;}
+function saveData(d){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch(e){}}
+
+var appData;
+
+function init(){
+  var today=todayStr();
+  appData=loadData();
+  if(!appData){appData={startDate:today,history:[],maxLevel:1};}
+  else{var lvl=Math.min(daysBetween(appData.startDate,today)+1,30);if(lvl>(appData.maxLevel||1))appData.maxLevel=lvl;}
+  saveData(appData);render();
+}
+
+function render(){
+  var today=todayStr();
+  var lvl=Math.min(daysBetween(appData.startDate,today)+1,30);
+  var glowR=(lvl-1)/29;
+  var lc=LC[lvl-1]||'#4ECDC4';
+  var ph=getPhase(lvl);
+  var phPct=phasePct(lvl,ph);
+  var sessions=appData.history||[];
+  var overallMax=sessions.length>0?Math.max.apply(null,sessions.map(function(s){return s.maxLevelReached;}).concat([lvl])):lvl;
+  var daysActive=daysBetween(appData.startDate,today)+1;
+
+  // Screen glow
+  var gSize=Math.round(glowR*920);
+  var gAlpha=glowR*0.52;
+  var gEl=document.getElementById('screen-glow');
+  if(glowR>0.01){gEl.style.width=gSize+'px';gEl.style.height=gSize+'px';gEl.style.background='radial-gradient(circle,'+lc+h2(gAlpha*255)+' 0%,transparent 68%)';}
+  else{gEl.style.width='0';gEl.style.height='0';}
+
+  document.getElementById('hdr-date').textContent=fmtDate(today)+'  \u00b7  SESSION #'+(sessions.length+1);
+
+  // Phase banner
+  var pb=document.getElementById('phase-banner');
+  pb.style.background=ph.color+'0e';pb.style.border='1px solid '+ph.color+'44';
+  pb.innerHTML='<div><div class="stm" style="font-size:8px;letter-spacing:4px;color:'+ph.color+'77;margin-bottom:3px">CURRENT PHASE</div><div class="orb" style="font-size:14px;font-weight:700;color:'+ph.color+'">'+ph.icon+' '+ph.name+' \u2014 '+ph.label+'</div><div class="stm" style="font-size:9px;color:#444;margin-top:3px">Days '+ph.start+'\u2013'+ph.end+' \u00b7 '+(lvl<ph.end?(ph.end-lvl)+' day'+(ph.end-lvl===1?'':'s')+' to milestone':'Milestone reached!')+'</div></div><div class="orb" style="font-size:24px;font-weight:900;color:'+ph.color+';opacity:.45">'+ph.id+'/5</div>';
+
+  // Phase bar
+  var ppEl=document.getElementById('phase-pct');ppEl.style.color=lc;ppEl.textContent=Math.round(phPct)+'%';
+  var pbar=document.getElementById('phase-bar');pbar.style.width=phPct+'%';pbar.style.background='linear-gradient(90deg,'+ph.color+'77,'+ph.color+')';
+  document.getElementById('phase-range').innerHTML='<span class="stm" style="font-size:7px;color:#222230">LVL '+ph.start+'</span><span class="stm" style="font-size:7px;color:#222230">LVL '+ph.end+'</span>';
+
+  // Badge
+  var g1=2+glowR*4,g2=4+glowR*12;
+  var badge=document.getElementById('badge');
+  badge.style.border='2px solid '+lc;
+  badge.style.setProperty('--bs1','0 0 '+g1+'px '+lc+',0 0 '+g2+'px '+lc+',inset 0 0 '+g1+'px rgba(255,255,255,.04)');
+  badge.style.setProperty('--bs2','0 0 '+(g1*2.4)+'px '+lc+',0 0 '+(g2*2.4)+'px '+lc+',inset 0 0 '+(g1*2)+'px rgba(255,255,255,.09)');
+  badge.style.animation='badge-pulse 2s ease-in-out infinite';
+  document.getElementById('badge-ring1').style.border='1px solid '+lc+'22';
+  document.getElementById('badge-ring2').style.border='1px solid '+lc+'0d';
+  var bn=document.getElementById('badge-num');
+  bn.style.color=lc;bn.textContent=lvl;
+  bn.style.textShadow='0 0 '+(8+glowR*22)+'px '+lc+',0 0 '+(14+glowR*36)+'px '+lc;
+
+  // Global bar
+  var gb=document.getElementById('global-bar');
+  gb.style.width=(((lvl-1)/29)*100)+'%';
+  gb.style.background='linear-gradient(90deg,#1a1a30,'+lc+')';
+
+  document.getElementById('session-day').textContent=daysActive===1?'\u25b8 Started today':'\u25b8 Day '+daysActive+' of this session';
+
+  // Stats
+  document.getElementById('stat-session').textContent='#'+(sessions.length+1);
+  document.getElementById('stat-max').style.color=lc;
+  document.getElementById('stat-max-box').style.border='1px solid '+lc+'44';
+  document.getElementById('stat-max').textContent=overallMax;
+  document.getElementById('stat-days').textContent=daysActive;
+
+  // Milestone Road
+  var road=document.getElementById('milestone-road');road.innerHTML='';
+  PHASES.forEach(function(phase){
+    var done=lvl>phase.end,active=lvl>=phase.start&&lvl<=phase.end;
+    var pct=done?100:(active?Math.round(phasePct(lvl,phase)):0);
+    var div=document.createElement('div');
+    div.style.cssText='background:'+(active?phase.color+'0c':done?phase.color+'06':'#09090e')+';border:1px solid '+(active?phase.color+'55':done?phase.color+'2a':'#111118')+';padding:11px 12px;transition:all .4s';
+    var dots='';
+    for(var i=phase.start;i<=phase.end;i++){
+      var here=i===lvl,past=i<lvl;
+      dots+='<div style="width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-family:\'Share Tech Mono\',monospace;background:'+(here?phase.color:past?phase.color+'2e':'#0c0c18')+';border:1px solid '+(here?phase.color:past?phase.color+'50':'#141420')+';color:'+(here?'#000':past?phase.color:'#1a1a28')+';font-weight:'+(here?700:400)+';transition:all .3s;margin:2px">'+i+'</div>';
+    }
+    var badge2=done?'<span class="stm" style="font-size:8px;letter-spacing:2px;padding:3px 8px;border:1px solid '+phase.color+'55;color:'+phase.color+';display:inline-block;animation:done-pulse 3s ease-in-out infinite">\u2713 DONE</span>':active?'<span class="orb" style="font-size:8px;color:'+phase.color+';letter-spacing:2px">'+pct+'%</span>':'<span class="stm" style="font-size:7px;color:#1a1a26;letter-spacing:1px">LOCKED</span>';
+    div.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="display:flex;align-items:center;gap:7px"><span style="color:'+(done||active?phase.color:'#1e1e28')+';font-size:12px">'+phase.icon+'</span><div><div class="orb" style="font-size:8px;letter-spacing:2px;color:'+(done?phase.color:active?phase.color:'#222230')+'">'+phase.name+' \u2014 '+phase.label+'</div><div class="stm" style="font-size:7px;color:#222230;margin-top:1px">Level '+phase.start+'\u2013'+phase.end+'</div></div></div><div>'+badge2+'</div></div><div style="background:#0c0c16;height:3px;overflow:hidden;margin-bottom:7px"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,'+phase.color+'55,'+phase.color+');transition:width .8s ease"></div></div><div style="display:flex;flex-wrap:wrap">'+dots+'</div>';
+    road.appendChild(div);
+  });
+}
+
+function openReset(){
+  var today=todayStr();var lvl=Math.min(daysBetween(appData.startDate,today)+1,30);
+  document.getElementById('reset-msg').innerHTML='Current session (<span style="color:#fff">Level '+lvl+'</span>) will be saved to history.<br/>New session starts from <span style="color:#fff">Level 1</span> on '+fmtDate(today)+'.';
+  document.getElementById('reset-modal').style.display='flex';
+}
+function closeReset(){document.getElementById('reset-modal').style.display='none';}
+
+function doReset(){
+  var today=todayStr();var lvl=Math.min(daysBetween(appData.startDate,today)+1,30);
+  var session={startDate:appData.startDate,endDate:today,maxLevelReached:lvl};
+  appData={startDate:today,history:(appData.history||[]).concat([session]),maxLevel:1};
+  saveData(appData);closeReset();render();
+  showToast('\u2713 RESET \u2014 STARTING FROM LEVEL 1');
+}
+
+function openHistory(){
+  var today=todayStr();var lvl=Math.min(daysBetween(appData.startDate,today)+1,30);
+  var lc=LC[lvl-1]||'#4ECDC4';var sessions=appData.history||[];
+  var overallMax=sessions.length>0?Math.max.apply(null,sessions.map(function(s){return s.maxLevelReached;}).concat([lvl])):lvl;
+  var ph=getPhase(lvl);
+  var milestones='';
+  PHASES.forEach(function(p){
+    var ever=sessions.some(function(s){return s.maxLevelReached>=p.end;})||lvl>=p.end;
+    milestones+='<div style="padding:3px 9px;border:1px solid '+(ever?p.color+'55':'#141420')+';background:'+(ever?p.color+'0d':'transparent')+'"><span class="stm" style="font-size:8px;color:'+(ever?p.color:'#1e1e2a')+'">'+p.icon+' '+p.name+'</span></div>';
+  });
+  var pastSessions='';
+  var rev=sessions.slice().reverse();
+  rev.forEach(function(s,i){
+    var num=rev.length-i;var sc=LC[s.maxLevelReached-1]||'#4ecdc4';var sph=getPhase(s.maxLevelReached);
+    pastSessions+='<div style="background:#09090e;border:1px solid #111118;padding:9px 11px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span class="orb" style="font-size:8px;color:#333;letter-spacing:2px">SESSION #'+num+'</span><span class="orb" style="font-size:12px;font-weight:700;color:'+sc+'">LVL '+s.maxLevelReached+'</span></div><div style="display:flex;justify-content:space-between;font-size:8px;font-family:\'Share Tech Mono\',monospace;color:#2a2a38"><span>'+fmtDate(s.startDate)+' \u2192 '+fmtDate(s.endDate)+'</span><span style="color:'+sph.color+'88">'+sph.icon+' '+sph.name+'</span></div></div>';
+  });
+  document.getElementById('history-content').innerHTML='<div style="background:#090914;border:1px solid '+lc+'33;padding:9px 13px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center"><span class="stm" style="font-size:10px;color:#666">\ud83c\udfc6 ALL-TIME MAX LEVEL</span><span class="orb" style="font-size:20px;font-weight:700;color:'+lc+'">'+overallMax+'</span></div><div style="margin-bottom:14px"><div class="stm" style="font-size:8px;color:#222232;letter-spacing:2px;margin-bottom:7px">MILESTONES EVER REACHED</div><div style="display:flex;gap:5px;flex-wrap:wrap">'+milestones+'</div></div><div style="background:#0d1520;border:1px solid #4ecdc430;padding:9px 11px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span class="orb" style="font-size:8px;color:#4ecdc4;letter-spacing:2px">CURRENT #'+(sessions.length+1)+'</span><span class="stm" style="font-size:8px;color:#4ecdc4">ACTIVE</span></div><div style="display:flex;justify-content:space-between;font-size:9px;font-family:\'Share Tech Mono\',monospace;color:#444"><span>Started '+fmtDate(appData.startDate)+'</span><span style="color:#ddd">Lv.'+lvl+' \u00b7 '+ph.icon+ph.name+'</span></div></div>'+pastSessions+(sessions.length===0?'<div class="stm" style="text-align:center;padding:18px;font-size:10px;color:#1c1c26">No past sessions yet.<br/>Reset to create history.</div>':'');
+  document.getElementById('history-modal').style.display='flex';
+}
+function closeHistory(){document.getElementById('history-modal').style.display='none';}
+
+function showToast(msg){
+  var t=document.createElement('div');t.className='toast';t.textContent=msg;
+  document.body.appendChild(t);setTimeout(function(){t.remove();},2500);
+}
+
+document.getElementById('reset-modal').addEventListener('click',function(e){if(e.target===this)closeReset();});
+document.getElementById('history-modal').addEventListener('click',function(e){if(e.target===this)closeHistory();});
+
+init();
+
+// Auto-refresh at midnight
+function msToMidnight(){var n=new Date(),m=new Date(n);m.setHours(24,0,5,0);return m-n;}
+setTimeout(function(){init();setInterval(init,86400000);},msToMidnight());
+</script>
+</body>
+</html>
